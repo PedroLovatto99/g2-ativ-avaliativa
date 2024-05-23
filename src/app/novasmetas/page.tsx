@@ -5,6 +5,27 @@ import { db } from "../../services/firebase/firebaseConfiguration";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "../../context/AuthContext";
+import * as yup from 'yup'; // aqui tem que importar a biblioteca, qualquer coisa usem o comando npm install yup
+
+const today = new Date().toISOString().split('T')[0];
+
+const createMetasSchema = yup.object().shape({
+  titulo: yup.string()
+    .required("O título é obrigatório")
+    .min(3, "O título deve ter pelo menos 3 caracteres"),
+  descricao: yup.string()
+    .required("A descrição é obrigatória")
+    .min(3, "A descrição deve ter pelo menos 20 caracteres"),
+  dataInicio: yup.date()
+    .required('A data de início é obrigatória')
+    .min(today, 'A data de início não pode ser menor que a data atual'),
+  dataFim: yup.date()
+    .required('A data de conclusão é obrigatória')
+    .when('dataInicio', (dataInicio, data) => dataInicio ? data.min(dataInicio,
+      'A data de conclusão não pode ser menor que a data de início') : data),
+  status: yup.string()
+    .required("O status é obrigatório"),
+});
 
 interface IMetas {
   [key: string]: {
@@ -28,15 +49,30 @@ export default function Home() {
     status: "",
     idUsuario: "",
   });
-  const formatDate = (dateString: string): string => {
-    const [year, month, day] = dateString.split("-");
-    return `${day}-${month}-${year}`;
-};
 
-  const addNovaMeta = () => {
+  const validaCampos = async () => {
+    try {
+      await createMetasSchema.validate(novaMeta, { abortEarly: false });
+      return true;
+
+    } catch (error) {
+      if (error instanceof yup.ValidationError) {
+        const erroMsg = error.inner.map(err => err.message).join('\n');
+        alert(erroMsg);
+      }
+      return false;
+    }
+  }
+
+
+  const addNovaMeta = async () => {
+    const Validou = await validaCampos();
+    if (!Validou) {
+      return;
+    }
     novaMeta.idUsuario = userAuth!.uid
     push(ref(db, "/metas"), novaMeta);
-    setNovaMeta({ titulo: "", descricao: "", dataInicio: "", dataFim: "", status: "", idUsuario: userAuth!.uid});
+    setNovaMeta({ titulo: "", descricao: "", dataInicio: "", dataFim: "", status: "", idUsuario: userAuth!.uid });
     console.log("uid:", userAuth!.uid)
     router.push("/");
   };
